@@ -1,39 +1,51 @@
 const express = require('express');
-const { argv } = require('process');
 const fs = require('fs');
+const process = require('process');
 
 const app = express();
 
+const path = process.argv[2] !== undefined ? process.argv[2] : '';
+
 app.get('/', (req, res) => {
-  res.set('Content-Type', 'text/plain');
   res.send('Hello Holberton School!');
 });
 
 app.get('/students', (req, res) => {
-  res.set('Content-Type', 'text/plain');
-  res.write('This is the list of our students\n');
-  fs.readFile(argv[2], 'utf8', (err, data) => {
+  const body = ['This is the list of our students'];
+  fs.readFile(path, (err, data) => {
     if (err) {
-      throw Error('Cannot load the database');
+      body.push('Cannot load the database');
+      res.send(body.join('\n'));
+    } else {
+      const db = data.toString().split('\n');
+      db.shift();
+      const field = {};
+      let totalStudents = 0;
+
+      for (const elem of db) {
+        if (elem !== '') {
+          totalStudents += 1;
+          const key = elem.split(',').pop();
+          const name = elem.split(',')[0];
+          if (Object.prototype.hasOwnProperty.call(field, key)) {
+            field[key].push(name);
+          } else {
+            field[key] = [name];
+          }
+        }
+      }
+      body.push(`Number of students: ${totalStudents}`);
+      for (const key in field) {
+        if (Object.prototype.hasOwnProperty.call(field, key)) {
+          const studentList = field[key];
+          body.push(`Number of students in ${key}: ${studentList.length}. List: ${studentList.join(', ')}`);
+        }
+      }
+      res.send(body.join('\n'));
     }
-    const result = [];
-    data.split('\n').forEach((data) => {
-      result.push(data.split(','));
-    });
-    result.shift();
-    const newis = [];
-    result.forEach((data) => newis.push([data[0], data[3]]));
-    const fields = new Set();
-    newis.forEach((item) => fields.add(item[1]));
-    const final = {};
-    fields.forEach((data) => { (final[data] = 0); });
-    newis.forEach((data) => { (final[data[1]] += 1); });
-    res.write(`Number of students: ${result.filter((check) => check.length > 3).length}\n`);
-    Object.keys(final).forEach((data) => res.write(`Number of students in ${data}: ${final[data]}. List: ${newis.filter((n) => n[1] === data).map((n) => n[0]).join(', ')}\n`));
-    res.end();
   });
 });
 
-app.listen(1245);
+app.listen(1245, () => {});
 
 module.exports = app;

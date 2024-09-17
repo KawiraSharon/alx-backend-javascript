@@ -1,57 +1,53 @@
 const http = require('http');
+const process = require('process');
 const fs = require('fs');
-const { argv } = require('process');
 
-function countStudents(path, stream) {
-  if (fs.existsSync(path)) {
-    const data = fs.readFileSync(path, 'utf8');
-    const result = [];
-    data.split('\n').forEach((data) => {
-      result.push(data.split(','));
-    });
-    result.shift();
-    const newis = [];
-    result.forEach((data) => newis.push([data[0], data[3]]));
-    const fields = new Set();
-    newis.forEach((item) => fields.add(item[1]));
-    const final = {};
-    fields.forEach((data) => { (final[data] = 0); });
-    newis.forEach((data) => { (final[data[1]] += 1); });
-    stream.write(`Number of students: ${result.length}\n`);
-    const temp = [];
-    Object.keys(final).forEach((data) => temp.push(`Number of students in ${data}: ${final[data]}. List: ${newis.filter((n) => n[1] === data).map((n) => n[0]).join(', ')}\n`));
-    // eslint-disable-next-line no-plusplus
-    for (let i = 0; i < temp.length; i++) {
-      if (i === temp.length - 1) {
-        temp[i] = temp[i].replace(/(\r\n|\n|\r)/gm, '');
-      }
-      stream.write(temp[i]);
-    }
-  } else { throw new Error('Cannot load the database'); }
-}
-
-const hostname = 'localhost';
-const port = 1245;
+const path = process.argv[2] !== undefined ? process.argv[2] : '';
 
 const app = http.createServer((req, res) => {
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/plain');
-  const { url } = req;
-  if (url === '/') {
-    res.write('Hello Holberton School!');
-    res.end();
+
+  if (req.url === '/') {
+    res.end('Hello Holberton School!');
   }
-  if (url === '/students') {
-    res.write('This is the list of our students\n');
-    try {
-      countStudents(argv[2], res);
-      res.end();
-    } catch (err) {
-      res.end(err.message);
-    }
+  if (req.url === '/students') {
+    const body = ['This is the list of our students'];
+    fs.readFile(path, (err, data) => {
+      if (err) {
+        body.push('Cannot load the database');
+        res.end(body.join('\n'));
+      } else {
+        const db = data.toString().split('\n');
+        db.shift();
+        const field = {};
+        let totalStudents = 0;
+
+        for (const elem of db) {
+          if (elem !== '') {
+            totalStudents += 1;
+            const key = elem.split(',').pop();
+            const name = elem.split(',')[0];
+            if (Object.prototype.hasOwnProperty.call(field, key)) {
+              field[key].push(name);
+            } else {
+              field[key] = [name];
+            }
+          }
+        }
+        body.push(`Number of students: ${totalStudents}`);
+        for (const key in field) {
+          if (Object.prototype.hasOwnProperty.call(field, key)) {
+            const studentList = field[key];
+            body.push(`Number of students in ${key}: ${studentList.length}. List: ${studentList.join(', ')}`);
+          }
+        }
+        res.end(body.join('\n'));
+      }
+    });
   }
 });
 
-app.listen(port, hostname);
+app.listen(1245, '0.0.0.0', () => {});
 
 module.exports = app;
